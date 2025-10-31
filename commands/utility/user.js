@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 
+// function that logs the username whoever called the command
 module.exports = {
 	data: new SlashCommandBuilder().setName('user').setDescription('Provides information about the user.'),
 	async execute(interaction) {
