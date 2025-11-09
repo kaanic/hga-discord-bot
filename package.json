@@ -15,6 +15,7 @@
   ],
   "description": "A Discord bot dedicated to HAMK Gaming Academy",
   "dependencies": {
+    "better-sqlite3": "^12.4.1",
     "discord.js": "^14.24.2"
   },
   "devDependencies": {
