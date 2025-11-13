@@ -47,8 +47,50 @@ function getOrCreateUser(guildId, userId, username) {
     return user;
 }
 
+// adding experience to an user
+function addExperience(guildId, userId, amount) {
+	try {
+		const user = getUser(guildId, userId);
+		if (!user) return null;
+
+		const newXP = user.experience + amount;
+
+		const stmt = db.prepare(`
+			UPDATE users SET experience = ?,
+			updatedAt = CURRENT_TIMESTAMP
+			WHERE guildId = ? AND userId = ?;	
+		`);
+		stmt.run(newXP, guildId, userId);
+
+		return getUser(guildId, userId);
+	} catch (error) {
+		console.error('Error upon adding experience:', error);
+		return null;
+	}
+}
+
+// setting user level manually
+function setLevel(guildId, userId, level) {
+    try {
+        const stmt = db.prepare(`
+            UPDATE users SET level = ?,
+            updatedAt = CURRENT_TIMESTAMP
+            WHERE guildId = ? AND userId = ?;
+        `);
+        stmt.run(level, guildId, userId);
+
+        return getUser(guildId, userId);
+    } catch (error) {
+        console.error('Error upon setting level:', error);
+		return null;
+    }
+}
+
+
 module.exports = {
     createUser,
     getUser,
     getOrCreateUser,
+    addExperience,
+    setLevel,
 };
