@@ -18,7 +18,7 @@ function initializeDatabase() {
 			guildId TEXT NOT NULL,
 			userId TEXT NOT NULL,
 			username TEXT NOT NULL,
-			currency INTEGER DEFAULT 500,
+			balance INTEGER DEFAULT 500,
 			level INTEGER DEFAULT 1,
 			experience INTEGER DEFAULT 0,
 			joinedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
