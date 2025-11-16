@@ -23,6 +23,7 @@ function initializeDatabase() {
 			experience INTEGER DEFAULT 0,
 			joinedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+			lastDailyClaim DATETIME,
 			UNIQUE(guildId, userId)
 		);
 	`);

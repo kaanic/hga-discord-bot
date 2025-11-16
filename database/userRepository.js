@@ -1,4 +1,5 @@
 const db = require('./db');
+const { ECONOMY } = require('../globals');
 
 // collection of helper functions for the user db
 
@@ -22,10 +23,10 @@ function createUser(guildId, userId, username) {
     try {
         const stmt = db.prepare(`
             INSERT INTO users (guildId, userId, username, balance, level, experience)
-            VALUES (?, ?, ?, 500, 1, 0);
+            VALUES (?, ?, ?, ?, ?, ?);
         `);
 
-        stmt.run(guildId, userId, username);
+        stmt.run(guildId, userId, username, ECONOMY.STARTING_BALANCE, ECONOMY.STARTING_LEVEL, ECONOMY.STARTING_EXPERIENCE);
         // console.log(`User created: ${username} (${userId} in server ${guildId})`);
 
         return getUser(guildId, userId);
@@ -173,6 +174,60 @@ function getTransactionHistory(guildId, userId, limit = 10) {
     }
 }
 
+// claiming daily reward as an user
+function claimDaily(guildId, userId, dailyAmount = 100) {
+    try {
+        const user = getUser(guildId, userId);
+        if (!user) return null;
+
+        const now = new Date();
+        const lastClaim = user.lastDailyClaim ? new Date(user.lastDailyClaim) : null;
+
+        // checking if 24 hours has past since last claim
+        // (implementation of reset is subject to change)
+        if (lastClaim) {
+            const hoursSinceLastClaim = (now - lastClaim) / (60 * 60 * 1000);
+
+            if (hoursSinceLastClaim < 24) {
+                const hoursRemaining = Math.ceil(24 - hoursSinceLastClaim);
+                return {
+                    success: false,
+                    message: `You can claim again in ${hoursRemaining} hour(s).`,
+                    hoursRemaining,
+                };
+            }
+        }
+
+        // updating database - balance and lastDailyClaim
+        const stmt = db.prepare(`
+            UPDATE users
+            SET balance = balance + ?, lastDailyClaim = CURRENT_TIMESTAMP, updatedAt = CURRENT_TIMESTAMP
+            WHERE guildId = ? AND userId = ?;
+        `);
+        stmt.run(dailyAmount, guildId, userId);
+
+        // logging the transaction
+        const balanceBefore = user.balance;
+        const balanceAfter = balanceBefore + dailyAmount;
+
+        const logStmt = db.prepare(`
+            INSERT INTO economyLog (guildId, userId, transactionType, amount, reason, balanceBefore, balanceAfter)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+        logStmt.run(guildId, userId, 'POINTS', dailyAmount, 'Daily claim', balanceBefore, balanceAfter);
+
+        const updatedUser = getUser(guildId, userId);
+        return {
+            success: true,
+            message: `You have claimed ${dailyAmount} points!`,
+            user: updatedUser,
+        };
+    } catch (error) {
+        console.error('Error claiming daily:', error);
+        return null;
+    }
+}
+
 module.exports = {
     createUser,
     getUser,
@@ -183,4 +238,5 @@ module.exports = {
     setLevel,
     updateBalance,
     getTransactionHistory,
+    claimDaily,
 };
