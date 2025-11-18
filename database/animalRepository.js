@@ -58,9 +58,126 @@ function initializeAnimalTables() {
     console.log('Animal tables initialized successfully');
 }
 
+// --- ANIMAL CATALOGUE FUNCTIONS ---
+
+// populating animals catalogue from config file
+function populateAnimalsCatalogue() {
+    const { animals } = require('../animals/animalData');
+
+    // getting rarity keys directly
+    const rarities = Object.keys(animals);
+
+    for (const rarity in rarities) {
+        for (const animal in animals[rarity]) {
+            try {
+                const stmt = db.prepare(`
+                    INSERT OR IGNORE INTO animals_catalogue (name, emoji, rarity)
+                    VALUES (?, ?, ?);
+                `);
+
+                stmt.run(animal.name, animal.emoji, rarity);
+            } catch (error) {
+                console.error(`Error inserting animal ${animal.name}`, error);
+            }
+        }
+    }
+
+    console.log('Animals catalogue is successfully populated.');
+}
+
+// getting all animals from catalogue
+function getAllAnimals() {
+    try {
+        const stmt = db.prepare('SELECT * FROM animals_catalogue;');
+
+        return stmt.all();
+    } catch (error) {
+        console.error('Error fetching all animals:', error);
+        return [];
+    }
+}
+
+// --- USER INVENTORY FUNCTIONS ---
+
+// getting an user's entire inventory
+function getUserInventory(guildId, userId) {
+    try {
+        const stmt = db.prepare(`
+            SELECT * FROM users_animals
+            WHERE guildId = ? AND userId = ?
+            ORDER BY rarity DESC, animalName ASC;    
+        `);
+
+        return stmt.all(guildId, userId);
+    } catch (error) {
+        console.error('Error fetching user inventory:', error);
+        return [];
+    }
+}
+
+// getting a specific animal from user inventory
+function getUserAnimal(guildId, userId, animalName) {
+    try {
+        const stmt = db.prepare(`
+            SELECT * FROM user_animals
+            WHERE guildId = ? AND userId = ? AND animalName = ?;    
+        `);
+
+        return stmt.get(guildId, userId, animalName);
+    } catch (error) {
+        console.error('Error fetching user animal;', error);
+        return null;
+    }
+}
+
+// adding an animal to user inventory
+// animals will be able to stack, upon duplicates it will be updated instead
+function addAnimalToInventory(guildId, userId, animalName, rarity, quantity = 1) {
+    try {
+        const existing = getUserAnimal(guildId, userId, animalName);
+
+        if (existing) {
+            // if user already has the animal, updating the value
+            const stmt = db.prepare(`
+                UPDATE user_animals
+                SET quantity = quantity + ?,
+                    caughtAt = CURRENT_TIMESTAMP
+                WHERE guildId = ? AND userId = ? AND animalName = ?;    
+            `);
+
+            stmt.run(quantity, guildId, userId, animalName);
+        } else {
+            // inserting the animal instead
+            const stmt = db.prepare(`
+                INSERT INTO user_animals (guildId, userId, animalName, rarity, quantity)
+                VALUES (?, ?, ?, ?, ?);    
+            `);
+
+            stmt.run(guildId, userId, animalName, rarity, quantity);
+        }
+
+        return getUserAnimal(guildId, userId, animalName);
+    } catch (error) {
+        console.error('Error adding animal to inventory:', error);
+        return null;
+    }
+}
+
 // initializing tables on first time
 initializeAnimalTables();
+populateAnimalsCatalogue();
 
 module.exports = {
     initializeAnimalTables,
+
+    // animal catalogue
+    populateAnimalsCatalogue,
+    getAllAnimals,
+
+    // user animal table
+    getUserInventory,
+    getUserAnimal,
+    addAnimalToInventory,
+
+    // stats
 };
