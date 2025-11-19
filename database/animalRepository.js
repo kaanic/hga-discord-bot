@@ -26,9 +26,9 @@ function initializeAnimalTables() {
             animalName TEXT NOT NULL,
             rarity TEXT NOT NULL,
             quantity INTEGER DEFAULT 1,
-            caughtAt DATETIME DAFULT CURRENT_TIMESTAMP,
+            caughtAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(guildId, userId, animalName),
-            FOREIGN KEY (animalName) REFERENCES animal_catalogue(name) ON DELETE CASCADE
+            FOREIGN KEY (animalName) REFERENCES animals_catalogue(name) ON DELETE CASCADE
         );    
     `);
 
@@ -67,8 +67,8 @@ function populateAnimalsCatalogue() {
     // getting rarity keys directly
     const rarities = Object.keys(animals);
 
-    for (const rarity in rarities) {
-        for (const animal in animals[rarity]) {
+    for (const rarity of rarities) {
+        for (const animal of animals[rarity]) {
             try {
                 const stmt = db.prepare(`
                     INSERT OR IGNORE INTO animals_catalogue (name, emoji, rarity)
@@ -97,13 +97,25 @@ function getAllAnimals() {
     }
 }
 
+// getting the animals from catalogue based on the rarity
+function getAnimalsByRarity(rarity) {
+    try {
+        const stmt = db.prepare('SELECT * FROM animals_catalogue WHERE rarity = ?;');
+
+        return stmt.all(rarity);
+    } catch (error) {
+        console.error(`Error fetching ${rarity} animals`, error);
+        return [];
+    }
+}
+
 // --- USER INVENTORY FUNCTIONS ---
 
 // getting an user's entire inventory
 function getUserInventory(guildId, userId) {
     try {
         const stmt = db.prepare(`
-            SELECT * FROM users_animals
+            SELECT * FROM user_animals
             WHERE guildId = ? AND userId = ?
             ORDER BY rarity DESC, animalName ASC;    
         `);
@@ -163,6 +175,158 @@ function addAnimalToInventory(guildId, userId, animalName, rarity, quantity = 1)
     }
 }
 
+// removing an animal from an user inventory
+function removeAnimalFromInventory(guildId, userId, animalName, quantity = 1) {
+    try {
+        const existing = getUserAnimal(guildId, userId, animalName);
+        if (!existing) return null;
+
+        if (existing.quantity <= quantity) {
+            // if quantity becomes 0 or less than 0
+            const stmt = db.prepare(`
+                DELETE FROM user_animals
+                WHERE guildId = ? AND userId = ? and animalName = ?;    
+            `);
+
+            stmt.run(guildId, userId, animalName);
+        } else {
+            // just decreasing quantity
+            const stmt = db.prepare(`
+                UPDATE user_animals
+                SET quantity = quantity - ?
+                WHERE guildId = ? AND userId = ? and animalName = ?;
+            `);
+
+            stmt.run(quantity, guildId, userId, animalName);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error removing animal from user inventory:', error);
+        return false;
+    }
+}
+
+// rarity summarization of an user inventory
+function getInventorySummary(guildId, userId) {
+	try {
+		const stmt = db.prepare(`
+			SELECT rarity, COUNT(*) as uniqueCount, SUM(quantity) as totalQuantity
+			FROM user_animals 
+			WHERE guildId = ? AND userId = ?
+			GROUP BY rarity
+			ORDER BY CASE 
+				WHEN rarity = 'common' THEN 1
+				WHEN rarity = 'uncommon' THEN 2
+				WHEN rarity = 'rare' THEN 3
+				WHEN rarity = 'epic' THEN 4
+				WHEN rarity = 'legendary' THEN 5
+				WHEN rarity = 'mythical' THEN 6
+				WHEN rarity = 'distorted' THEN 7
+				WHEN rarity = 'hidden' THEN 8
+				ELSE 9
+			END;
+		`);
+		return stmt.all(guildId, userId);
+	} catch (error) {
+		console.error('Error fetching inventory summary:', error);
+		return [];
+	}
+}
+
+// --- HUNTING STATS FUNCTIONS ---
+
+// getting/creating hunting stats per user
+function getOrCreateHuntingStats(guildId, userId) {
+    try {
+        let stats = db.prepare(`
+            SELECT * FROM hunting_stats
+            WHERE guildId = ? AND userId = ?;    
+        `).get(guildId, userId);
+
+        if (!stats) {
+            const stmt = db.prepare(`
+                INSERT INTO hunting_stats (guildId, userId, totalHunts, totalAnimalsHunted)
+                VALUES (?, ?, 0, 0);    
+            `);
+
+            stmt.run(guildId, userId);
+
+            stats = db.prepare(`
+                SELECT * FROM hunting_stats
+                WHERE guildId = ? AND userId = ?;    
+            `).get(guildId, userId);
+        }
+
+        return stats;
+    } catch (error) {
+        console.error('Error getting hunting stats:', error);
+        return null;
+    }
+}
+
+// updating hunting stats
+function updateHuntingStats(guildId, userId, animalsHuntedCount) {
+    try {
+        const stmt = db.prepare(`
+            UPDATE hunting_stats
+            SET lastHuntAt = CURRENT_TIMESTAMP,
+                totalHunts = totalHunts + 1,
+                totalAnimalsHunted = totalAnimalsHunted + ?,
+                updatedAt = CURRENT_TIMESTAMP
+            WHERE guildId = ? AND userId = ?;    
+        `);
+
+        stmt.run(animalsHuntedCount, guildId, userId);
+        return getOrCreateHuntingStats(guildId, userId);
+    } catch (error) {
+        console.error('Error updating hunting stats:', error);
+		return null;
+    }
+}
+
+// checking if the user is on cooldown
+function isHuntingOnCooldown(guildId, userId, cooldownSeconds = 15) {
+	try {
+		const stats = getOrCreateHuntingStats(guildId, userId);
+
+		if (!stats.lastHuntAt) {
+			// first hunt
+            return false;
+		}
+
+		const lastHuntTime = new Date(stats.lastHuntAt).getTime();
+		const currentTime = Date.now();
+		const timeDiffSeconds = (currentTime - lastHuntTime) / 1000;
+
+		return timeDiffSeconds < cooldownSeconds;
+	} catch (error) {
+		console.error('Error checking cooldown:', error);
+		return true;
+	}
+}
+
+// getting remaining cooldown in seconds
+function getRemainingCooldown(guildId, userId, cooldownSeconds = 15) {
+	try {
+		const stats = getOrCreateHuntingStats(guildId, userId);
+
+		if (!stats.lastHuntAt) {
+			return 0;
+		}
+
+		const lastHuntTime = new Date(stats.lastHuntAt).getTime();
+		const currentTime = Date.now();
+		const timeDiffSeconds = (currentTime - lastHuntTime) / 1000;
+		const remaining = Math.ceil(cooldownSeconds - timeDiffSeconds);
+
+		return Math.max(0, remaining);
+	} catch (error) {
+		console.error('Error calculating remaining cooldown:', error);
+		return 0;
+	}
+}
+
 // initializing tables on first time
 initializeAnimalTables();
 populateAnimalsCatalogue();
@@ -173,11 +337,18 @@ module.exports = {
     // animal catalogue
     populateAnimalsCatalogue,
     getAllAnimals,
+    getAnimalsByRarity,
 
     // user animal table
     getUserInventory,
     getUserAnimal,
     addAnimalToInventory,
+    removeAnimalFromInventory,
+    getInventorySummary,
 
     // stats
+    getOrCreateHuntingStats,
+    updateHuntingStats,
+    isHuntingOnCooldown,
+    getRemainingCooldown,
 };
