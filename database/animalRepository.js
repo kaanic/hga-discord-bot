@@ -62,7 +62,7 @@ function initializeAnimalTables() {
 
 // populating animals catalogue from config file
 function populateAnimalsCatalogue() {
-    const { animals } = require('../animals/animalData');
+    const { animals } = require('../config/animalData');
 
     // getting rarity keys directly
     const rarities = Object.keys(animals);
