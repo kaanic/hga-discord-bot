@@ -45,4 +45,16 @@ for (const file of eventFiles) {
 	}
 }
 
+// handling termination of the bot
+
+const shutdown = () => {
+    console.log('Bot terminated, moi moi!');
+    process.exit(0);
+};
+
+['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, shutdown);
+});
+
+// logging into discord with the token
 client.login(token);
