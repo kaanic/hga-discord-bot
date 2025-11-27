@@ -101,11 +101,43 @@ const gamesConfig = {
 	},
 };
 
+// -- helper functions ---
+
+// getting a game by the key
 function getGame(gameKey) {
     return gamesConfig[gameKey.toLowerCase()];
+}
+
+// getting all the games
+function getAllGames() {
+	return Object.entries(gamesConfig).map(
+		([key, game]) => ({
+		key,
+		...game,
+	}));
+}
+
+// validating game and game type
+function validateGameAndType(gameKey, gameType) {
+	const game = getGame(gameKey);
+	if (!game) return false;
+
+	if (game.gameTypes.length === 0) return true;
+	return game.gameTypes.includes(gameType);
+}
+
+// validating player count
+function validatePlayerCount(gameKey, playerCount) {
+	const game = getGame(gameKey);
+	if (!game) return false;
+
+	return (playerCount >= game.minPlayers) && (playerCount <= game.maxPlayers);
 }
 
 module.exports = {
     gamesConfig,
     getGame,
+	getAllGames,
+	validateGameAndType,
+	validatePlayerCount,
 };
