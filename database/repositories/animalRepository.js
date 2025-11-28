@@ -1,4 +1,4 @@
-const db = require('./db');
+const db = require('../db');
 
 // collection of helper functions related to animal and inventory system
 
@@ -62,7 +62,7 @@ function initializeAnimalTables() {
 
 // populating animals catalogue from config file
 function populateAnimalsCatalogue() {
-    const { animals } = require('../config/animalData');
+    const { animals } = require('../../config/animalData');
 
     // getting rarity keys directly
     const rarities = Object.keys(animals);

@@ -1,5 +1,5 @@
-const db = require('./db');
-const { ECONOMY } = require('../globals');
+const db = require('../db');
+const { ECONOMY } = require('../../globals');
 
 // collection of helper functions for the user db
 

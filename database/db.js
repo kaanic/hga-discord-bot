@@ -44,11 +44,47 @@ function initializeDatabase() {
 		);
 	`);
 
+	// lfg_posts table - LFG posts created by users
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS lfg_posts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			guildId TEXT NOT NULL,
+			userId TEXT NOT NULL,
+			game TEXT NOT NULL,
+			gameType TEXT,
+			playerCountNeeded INTEGER NOT NULL,
+			currentPlayers INTEGER DEFAULT 1,
+			description TEXT,
+			expiresAt DATETIME NOT NULL,
+			createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`);
+
+	// lfg_members table - users who joined an LFG post
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS lfg_members (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			postId INTEGER NOT NULL,
+			guildId TEXT NOT NULL,
+			userId TEXT NOT NULL,
+			username TEXT NOT NULL,
+			joinedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(postId, userId),
+			FOREIGN KEY (postId) REFERENCES lfg_posts(id) ON DELETE CASCADE
+		);
+	`);
+
 	// indexing for faster query match
 	db.exec(`
 		CREATE INDEX IF NOT EXISTS idx_users_guildId_userId ON users(guildId, userId);
 		CREATE INDEX IF NOT EXISTS idx_economyLog_guildId_userId ON economyLog(guildId, userId);
 		CREATE INDEX IF NOT EXISTS idx_economyLog_createdAt ON economyLog(createdAt);
+		CREATE INDEX IF NOT EXISTS idx_lfg_posts_guildId ON lfg_posts(guildId);
+		CREATE INDEX IF NOT EXISTS idx_lfg_posts_userId ON lfg_posts(userId);
+		CREATE INDEX IF NOT EXISTS idx_lfg_posts_expiresAt ON lfg_posts(expiresAt);
+		CREATE INDEX IF NOT EXISTS idx_lfg_members_postId ON lfg_members(postId);
+		CREATE INDEX IF NOT EXISTS idx_lfg_members_userId ON lfg_members(userId);
 	`);
 
 	console.log('Database initialized successfully');
