@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getOrCreateUser } = require('../../database/userRepository');
+const { getOrCreateUser } = require('../../database/repositories/userRepository');
 
 // command for basic personal stats on the server
 module.exports = {

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getOrCreateUser, claimDaily } = require('../../database/userRepository');
+const { getOrCreateUser, claimDaily } = require('../../database/repositories/userRepository');
 const { ECONOMY } = require('../../globals');
 
 const DAILY_AMOUNT = ECONOMY.DAILY_AMOUNT;
