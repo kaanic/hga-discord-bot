@@ -77,7 +77,7 @@ module.exports = {
         const focusedOption = interaction.options.getFocused(true);
         const gameInput = interaction.options.getString('game');
 
-        if (focusedOption === 'game') {
+        if (focusedOption.name === 'game') {
             // getting all the games from config
             const { gamesConfig } = require('../../config/gamesConfig');
             const games = Object.entries(gamesConfig);
@@ -105,12 +105,26 @@ module.exports = {
             }
 
             // if the game has predefined typed from the cfg file, showing them here
-            await interaction.respond([
-                {
-                    name: focusedOption.value || 'Custom game type',
-                    value: focusedOption.value || 'Any',
-                },
-            ]);
+            if (selectedGame.gameTypes.length > 0) {
+                const filtered = selectedGame.gameTypes
+                    .filter(type => type.toLowerCase().includes(focusedOption.value.toLowerCase()))
+                    .slice(0, 25);
+
+                const choices = filtered.map(type => ({
+                    name: type,
+                    value: type,
+                }));
+
+                await interaction.respond(choices);
+            } else {
+                // no predefined types for the game, custom input
+                await interaction.respond([
+                    {
+                        name: focusedOption.value || 'Custom game type',
+                        value: focusedOption.value || 'Any',
+                    },
+                ]);
+            }
         }
     },
 };
@@ -176,10 +190,10 @@ async function handleCreate(interaction) {
         // sending confirmation to discord chat
         await interaction.reply({
             content: `LFG post created!\n
-                     **Game:** ${gameConfig.name}\n
-                     **Type:** ${gameType}\n
-                     **Players Needed:** ${playerCount}\n
-                     **Duration:** ${duration} minutes${description ? `\n
+                    **Game:** ${gameConfig.name}\n
+                    **Type:** ${gameType}\n
+                    **Players Needed:** ${playerCount}\n
+                    **Duration:** ${duration} minutes${description ? `\n
                     **Description:** ${description}` : ''}`,
             ephemeral: true,
         });
