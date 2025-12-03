@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getActiveLFGPosts } = require('../../database/repositories/lfgRepository');
 const { getGame } = require('../../config/gamesConfig');
 
@@ -39,62 +39,29 @@ module.exports = {
 			// making embeds for each post
 			const embeds = posts.map((post) => {
 				const game = getGame(post.game);
-				const spotsRemaining = post.playerCountNeeded - post.currentPlayers;
-				const isFull = spotsRemaining <= 0;
+				const voiceChannel = interaction.guild.channels.cache.get(post.voiceChannelId);
 
 				const embed = new EmbedBuilder()
-					.setColor(isFull ? '#FFD93D' : '#6BCB77')
+					.setColor('#6BCB77')
 					.setTitle(`${game?.emoji || '🎮'} ${game?.name || post.game}`)
 					.addFields(
 						{ name: 'Game Type', value: post.gameType || 'Any', inline: true },
-						{ name: 'Players', value: `${post.currentPlayers}/${post.playerCountNeeded}`, inline: true },
-						{ name: 'Spots Remaining', value: isFull ? 'FULL' : `${spotsRemaining}`, inline: true },
+						{ name: 'Players Needed', value: `${post.playerCountNeeded}`, inline: true },
 						{ name: 'Posted By', value: `<@${post.userId}>`, inline: true },
+						{ name: 'Voice Channel', value: voiceChannel ? `${voiceChannel.toString()}` : 'Channel deleted', inline: true },
 						{ name: 'Expires', value: `<t:${Math.floor(new Date(post.expiresAt).getTime() / 1000)}:R>`, inline: true },
 						{ name: 'Post ID', value: `\`${post.id}\``, inline: true },
 					);
 
-				if (post.description) {
-					embed.addFields({ name: 'Description', value: post.description, inline: false });
-				}
-
 				return embed;
 			});
 
-			// creating buttons
-            // eslint-disable-next-line no-unused-vars
-			const rows = posts.map((post, index) => {
-				const isFull = post.playerCountNeeded - post.currentPlayers <= 0;
-
-				return new ActionRowBuilder().addComponents(
-					new ButtonBuilder()
-						.setCustomId(`lfg_join_${post.id}`)
-						.setLabel('Join')
-						.setStyle(ButtonStyle.Success)
-						.setDisabled(isFull),
-					new ButtonBuilder()
-						.setCustomId(`lfg_leave_${post.id}`)
-						.setLabel('Leave')
-						.setStyle(ButtonStyle.Danger),
-					new ButtonBuilder()
-						.setCustomId(`lfg_members_${post.id}`)
-						.setLabel('View Members')
-						.setStyle(ButtonStyle.Primary),
-				);
-			});
-
-			// sending embeds with buttons
-            // discord has 5 embed limit per message apparently
+			// discord has 5 embed limit per message
 			if (embeds.length <= 5) {
-				await interaction.editReply({
-					embeds,
-					components: rows.slice(0, 5),
-				});
+				await interaction.editReply({ embeds });
 			} else {
-				// if more than 5 posts, send some and mention others
 				await interaction.editReply({
 					embeds: embeds.slice(0, 5),
-					components: rows.slice(0, 5),
 					content: `Showing 5 of ${embeds.length} active LFG posts.`,
 				});
 			}

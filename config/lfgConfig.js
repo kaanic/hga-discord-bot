@@ -1,15 +1,18 @@
-// config for LFG system
-const { lfgChannelId } = require('../config.json');
+const { lfgChannelId, lfgVoiceCategoryId } = require('../config.json');
 
 const lfgConfig = {
 	// pulled from config.json
-    channelId: lfgChannelId,
+	channelId: lfgChannelId,
+	voiceCategoryId: lfgVoiceCategoryId,
 
-    // default duration for a LFG post
+	// default duration for a LFG post (in mins)
 	defaultDuration: 60,
 
-	// cooldown for creating a LFG post, per user
+	// cooldown for creating a LFG post per user (in mins)
 	createCooldown: 5,
+
+	// interval to check if empty voice channels should be deleted (in secs)
+	emptyChannelCheckInterval: 300,
 
 	// duration presets
 	durationPresets: [

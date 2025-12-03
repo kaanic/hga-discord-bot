@@ -2,10 +2,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { token } = require('./config.json');
+const { initializeLFGCleanup } = require('./tasks/lfgCleanup');
 
 // creating a new client instance
 // guild = discord server
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
 // root cooldown collection
 client.cooldowns = new Collection();
@@ -58,3 +59,8 @@ const shutdown = () => {
 
 // logging into discord with the token
 client.login(token);
+
+// initializing LFG cleanup task after login
+client.once('ready', () => {
+	initializeLFGCleanup(client);
+});

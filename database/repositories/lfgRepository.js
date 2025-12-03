@@ -5,14 +5,14 @@ const db = require('../db');
 // --- LFG POST FUNCTIONS ---
 
 // creating a new LFG post
-function createLFGPost(guildId, userId, game, gameType, playerCountNeeded, expiresAt, description = null) {
+function createLFGPost(guildId, userId, game, gameType, playerCountNeeded, voiceChannelId, expiresAt, messageId = null) {
     try {
         const stmt = db.prepare(`
-            INSERT INTO lfg_posts (guildId, userId, game, gameType, playerCountNeeded, expiresAt, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?);    
+            INSERT INTO lfg_posts (guildId, userId, game, gameType, playerCountNeeded, voiceChannelId, messageId, expiresAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);    
         `);
 
-        stmt.run(guildId, userId, game, gameType, playerCountNeeded, expiresAt, description);
+        stmt.run(guildId, userId, game, gameType, playerCountNeeded, voiceChannelId, messageId, expiresAt);
 
         // getting the created post from db
         const postStmt = db.prepare(`
@@ -90,119 +90,35 @@ function deleteLFGPost(postId) {
 // cleaning up the expired LFG posts
 function cleanupExpiredLFGPosts() {
     try {
-        const stmt = db.prepare('DELETE FROM lfg_posts WHERE expiresAt <= CURRENT_TIMESTAMP;');
+        const stmt = db.prepare('SELECT * FROM lfg_posts WHERE expiresAt <= CURRENT_TIMESTAMP;');
 
-        const result = stmt.run();
+        const expiredPosts = stmt.all();
 
-        if (result.changes > 0) { console.log(`Cleaned up ${result.changes} expired LFG posts.`); }
-        return result.changes;
+        if (expiredPosts.length > 0) {
+            console.log(`Found ${expiredPosts.length} expired LFG posts.`);
+        }
+
+        return expiredPosts;
     } catch (error) {
         console.error('Error cleaning up the expired posts:', error);
-        return 0;
-    }
-}
-
-
-// --- LFG MEMBER FUNCTIONS ---
-
-// adding an user to an LFG post
-function addMemberToLFGPost(postId, guildId, userId, username) {
-    try {
-        // checking if the user has already joined
-        const existing = db.prepare(`
-            SELECT * FROM lfg_members WHERE postId = ? AND userId = ?;    
-        `).get(postId, userId);
-
-        if (existing) return { success: false, message: 'You already joined this LFG post.' };
-
-        // adding the member
-        const stmt = db.prepare(`
-            INSERT INTO lfg_members (postId, guildId, userId, username)
-            VALUES (?, ?, ?, ?);    
-        `);
-
-        stmt.run(postId, guildId, userId, username);
-
-        // updating the currentPlayers count on lfg_posts
-        const updateStmt = db.prepare(`
-            UPDATE lfg_posts SET currentPlayers = currentPlayers + 1
-            WHERE id = ?;    
-        `);
-
-        updateStmt.run(postId);
-
-        return { success: true, message: 'Successfully joined the LFG post.' };
-    } catch (error) {
-        console.error('Error adding member to post:', error);
-        return {
-            success: false,
-            message: 'Error joining the post.',
-        };
-    }
-}
-
-// removing an user from an LFG post
-function removeMemberFromLFGPost(postId, userId) {
-    try {
-        // checking if the user is in the post
-        const existing = db.prepare(`
-            SELECT * FROM lfg_members WHERE postId = ? AND userId = ?;    
-        `).get(postId, userId);
-
-        if (!existing) return { success: false, message: 'You are not part of this LFG post.' };
-
-        // removing the member
-        const stmt = db.prepare(`
-            DELETE FROM lfg_members WHERE postId = ? AND userId = ?;    
-        `);
-
-        stmt.run(postId, userId);
-
-        // updating the currentPlayers count in lfg_posts
-        const updateStmt = db.prepare(`
-            UPDATE lfg_posts SET currentPlayers = currentPlayers - 1
-            WHERE id = ?;
-        `);
-
-        updateStmt.run(postId);
-
-        return { success: true, message: 'Successfully left the LFG post.' };
-    } catch (error) {
-        console.error('Error removing member from the post:', error);
-        return {
-            success: false,
-            message: 'Error leaving the post.',
-        };
-    }
-}
-
-// getting all members from a LFG post
-function getPostMembers(postId) {
-    try {
-        const stmt = db.prepare(`
-            SELECT * FROM lfg_members
-            WHERE postId = ?
-            ORDER BY joinedAt ASC;
-        `);
-
-        return stmt.all(postId);
-    } catch (error) {
-        console.error('Error getting the post members:', error);
 		return [];
     }
 }
 
-// checking if the user is member of the post
-function isMemberOfPost(postId, userId) {
+// updating the message ID for a post
+function updatePostMessageId(postId, messageId) {
     try {
         const stmt = db.prepare(`
-            SELECT * FROM lfg_members WHERE postId = ? AND userId = ?;
+            UPDATE lfg_posts
+            SET messageId = ?
+            WHERE id = ?;
         `);
 
-        return (stmt.get(postId, userId) !== null);
+        stmt.run(messageId, postId);
+        return getLFGPost(postId);
     } catch (error) {
-        console.error('Error checking member status:', error);
-		return false;
+        console.error('Error updating post message ID:', error);
+        return null;
     }
 }
 
@@ -214,10 +130,5 @@ module.exports = {
     getUserLFGPosts,
     deleteLFGPost,
     cleanupExpiredLFGPosts,
-
-    // member functions
-    addMemberToLFGPost,
-    removeMemberFromLFGPost,
-    getPostMembers,
-    isMemberOfPost,
+    updatePostMessageId,
 };

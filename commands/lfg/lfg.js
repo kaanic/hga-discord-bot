@@ -1,9 +1,10 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { createLFGPost, getLFGPost, deleteLFGPost } = require('../../database/repositories/lfgRepository');
-const { getGame } = require('../../config/gamesConfig');
+const { SlashCommandBuilder, EmbedBuilder, ChannelType } = require('discord.js');
+const { createLFGPost, getLFGPost, deleteLFGPost, updatePostMessageId } = require('../../database/repositories/lfgRepository');
+const { getGame, validateGameAndType, validatePlayerCount } = require('../../config/gamesConfig');
 const lfgConfig = require('../../config/lfgConfig');
 
 const createCooldowns = new Map();
+let roomCounter = 0;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -42,13 +43,6 @@ module.exports = {
 						.setRequired(false)
 						.setMinValue(5)
 						.setMaxValue(1440),
-				)
-				.addStringOption((option) =>
-					option
-						.setName('description')
-						.setDescription('Additional details (optional)')
-						.setRequired(false)
-						.setMaxLength(200),
 				),
 		)
 		.addSubcommand((subcommand) =>
@@ -67,7 +61,7 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
 
         if (subcommand === 'create') {
-           await handleCreate(interaction);
+            await handleCreate(interaction);
         } else if (subcommand === 'delete') {
             await handleDelete(interaction);
         }
@@ -153,54 +147,126 @@ async function handleCreate(interaction) {
 		const gameType = interaction.options.getString('gametype');
 		const playerCount = interaction.options.getInteger('playercount');
 		const duration = interaction.options.getInteger('duration') || lfgConfig.defaultDuration;
-		const description = interaction.options.getString('description');
 
         // validation
         const gameConfig = getGame(game);
         if (!gameConfig) {
+            return interaction.reply({
+                content: 'Invalid game selected.',
+                ephemeral: true,
+            });
+        }
+
+        if (!validateGameAndType(game, gameType)) {
+            return interaction.reply({
+                content: `Invalid game type for ${gameConfig.name}.`,
+                ephemeral: true,
+            });
+        }
+
+        if (!validatePlayerCount(game, playerCount)) {
             return interaction.reply({
                 content: `Player count must be between ${gameConfig.minPlayers} and ${gameConfig.maxPlayers} for ${gameConfig.name}.`,
                 ephemeral: true,
             });
         }
 
+        // deferring to give more time for voice channel creation
+        await interaction.deferReply({ ephemeral: true });
+
+        // creating voice channel
+        roomCounter++;
+        const channelName = `${roomCounter} - ${gameConfig.name}`;
+
+        // verifying that the category exists
+		if (!lfgConfig.voiceCategoryId) {
+			return interaction.editReply({
+				content: 'LFG voice category is not configured.',
+				ephemeral: true,
+			});
+		}
+
+        let voiceChannel;
+        try {
+			voiceChannel = await interaction.guild.channels.create({
+				name: channelName,
+				type: ChannelType.GuildVoice,
+				parent: lfgConfig.voiceCategoryId,
+				userLimit: gameConfig.maxPlayers,
+				reason: `LFG post for ${gameConfig.name}`,
+			});
+		} catch (error) {
+			console.error('Error creating voice channel:', error);
+			return interaction.editReply({
+				content: 'Failed to create voice channel. Please check bot permissions.',
+				ephemeral: true,
+			});
+		}
+
         // calculating expiration time
         const expiresAt = new Date(Date.now() + duration * 60 * 1000);
 
+        // creating LFG post in database
         const post = createLFGPost(
             interaction.guildId,
             interaction.user.id,
             game,
             gameType,
             playerCount,
+            voiceChannel.id,
             expiresAt.toISOString(),
-            description,
         );
 
         if (!post) {
-            return interaction.reply({
-                content: 'Error creating LFG post, please try again.',
+            // cleaning up the voice channel if post creation fails
+            await voiceChannel.delete('LFG post creation failed');
+            return interaction.editReply({
+                content: 'Error creating LFG post. Please try again.',
                 ephemeral: true,
             });
         }
 
-        // setting the cooldown
+        // creating embed message
+        const embed = new EmbedBuilder()
+            .setColor('#6BCB77')
+            .setTitle(`${gameConfig.emoji} ${gameConfig.name}`)
+            .addFields(
+                { name: 'Game Type', value: gameType || 'Any', inline: true },
+                { name: 'Players Needed', value: `${playerCount}`, inline: true },
+                { name: 'Posted By', value: `<@${userId}>`, inline: true },
+                { name: 'Voice Channel', value: `${voiceChannel.toString()}`, inline: true },
+                { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`, inline: true },
+                { name: 'Post ID', value: `\`${post.id}\``, inline: true },
+            )
+            .setFooter({ text: `Room #${roomCounter}` });
+
+        // sending message to LFG channel
+        let lfgMessage;
+        try {
+            const lfgChannel = interaction.guild.channels.cache.get(lfgConfig.channelId);
+            if (!lfgChannel) {
+                throw new Error('LFG channel not found');
+            }
+
+            lfgMessage = await lfgChannel.send({ embeds: [embed] });
+            updatePostMessageId(post.id, lfgMessage.id);
+        } catch (error) {
+            console.error('Error posting to LFG channel:', error);
+			// continue anyway, voice channel is created and post is in the db
+		}
+
+        // setting cooldown
         createCooldowns.set(userId, now);
 
-        // sending confirmation to discord chat
-        await interaction.reply({
-            content: `LFG post created!\n
-                    **Game:** ${gameConfig.name}\n
-                    **Type:** ${gameType}\n
-                    **Players Needed:** ${playerCount}\n
-                    **Duration:** ${duration} minutes${description ? `\n
-                    **Description:** ${description}` : ''}`,
+        // sending confirmation
+        await interaction.editReply({
+            content: `✅ LFG post created!\n\n**Game:** ${gameConfig.name}\n**Type:** ${gameType}\n**Players Needed:** ${playerCount}\n**Duration:** ${duration} minutes\n**Voice Channel:** ${voiceChannel.toString()}`,
             ephemeral: true,
         });
     } catch (error) {
         console.error('Error in LFG create:', error);
-        await interaction.reply({
-            content: 'An error occured while creating the LFG post.',
+        await interaction.editReply({
+            content: 'An error occurred while creating the LFG post.',
             ephemeral: true,
         });
     }
@@ -227,7 +293,17 @@ async function handleDelete(interaction) {
 			});
 		}
 
-        // deleting the post
+        // deleting the voice channel
+        try {
+            const voiceChannel = interaction.guild.channels.cache.get(post.voiceChannelId);
+            if (voiceChannel) {
+                await voiceChannel.delete('LFG post deleted');
+            }
+        } catch (error) {
+            console.error('Error deleting voice channel:', error);
+        }
+
+        // deleting the LFG post from database
         const success = deleteLFGPost(postId);
 
         if (!success) {
@@ -236,6 +312,21 @@ async function handleDelete(interaction) {
 				ephemeral: true,
 			});
 		}
+
+        // delete message from LFG channel
+        if (post.messageId) {
+            try {
+                const lfgChannel = interaction.guild.channels.cache.get(lfgConfig.channelId);
+                if (lfgChannel) {
+                    const message = await lfgChannel.messages.fetch(post.messageId);
+                    if (message) {
+                        await message.delete();
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting LFG message:', error);
+            }
+        }
 
 		await interaction.reply({
 			content: `✅ LFG post #${postId} deleted.`,
