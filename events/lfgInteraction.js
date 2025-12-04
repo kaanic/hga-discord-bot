@@ -1,6 +1,6 @@
 const { Events, EmbedBuilder } = require('discord.js');
 const { addMemberToLFGPost, removeMemberFromLFGPost, getPostMembers, getLFGPost } = require('../database/repositories/lfgRepository');
-const { getGame } = require('../config/gamesConfig');
+const { getGame, getGameEmoji } = require('../config/gamesConfig');
 
 module.exports = {
 	name: Events.InteractionCreate,
@@ -64,7 +64,7 @@ async function handleJoin(interaction) {
 			.setColor('#6BCB77')
 			.setTitle('✅ Successfully Joined LFG')
 			.addFields(
-				{ name: 'Game', value: getGame(updatedPost.game)?.name || updatedPost.game, inline: true },
+				{ name: 'Game', value: `${getGameEmoji(updatedPost.game)} ${getGame(updatedPost.game)?.name || updatedPost.game}`, inline: true },
 				{ name: 'Game Type', value: updatedPost.gameType || 'Any', inline: true },
 				{ name: 'Players', value: `${updatedPost.currentPlayers}/${updatedPost.playerCountNeeded}`, inline: true },
 				{ name: 'Spots Remaining', value: spotsRemaining > 0 ? `${spotsRemaining}` : 'POST FULL', inline: true },

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType } = require('discord.js');
 const { createLFGPost, getLFGPost, deleteLFGPost, updatePostMessageId } = require('../../database/repositories/lfgRepository');
-const { getGame, validateGameAndType, validatePlayerCount } = require('../../config/gamesConfig');
+const { getGame, validateGameAndType, validatePlayerCount, getGameEmoji } = require('../../config/gamesConfig');
 const lfgConfig = require('../../config/lfgConfig');
 
 const createCooldowns = new Map();
@@ -229,7 +229,7 @@ async function handleCreate(interaction) {
         // creating embed message
         const embed = new EmbedBuilder()
             .setColor('#6BCB77')
-            .setTitle(`${gameConfig.emoji} ${gameConfig.name}`)
+            .setTitle(`${getGameEmoji(game)} ${gameConfig.name}`)
             .addFields(
                 { name: 'Game Type', value: gameType || 'Any', inline: true },
                 { name: 'Players Needed', value: `${playerCount}`, inline: true },
@@ -260,7 +260,12 @@ async function handleCreate(interaction) {
 
         // sending confirmation
         await interaction.editReply({
-            content: `✅ LFG post created!\n\n**Game:** ${gameConfig.name}\n**Type:** ${gameType}\n**Players Needed:** ${playerCount}\n**Duration:** ${duration} minutes\n**Voice Channel:** ${voiceChannel.toString()}`,
+            content: `LFG post created!\n\n
+            **Game:** ${gameConfig.name}\n
+            **Type:** ${gameType}\n
+            **Players Needed:** ${playerCount}\n
+            **Duration:** ${duration} minutes\n
+            **Voice Channel:** ${voiceChannel.toString()}`,
             ephemeral: true,
         });
     } catch (error) {

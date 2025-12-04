@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getActiveLFGPosts } = require('../../database/repositories/lfgRepository');
-const { getGame } = require('../../config/gamesConfig');
+const { getGame, getGameEmoji } = require('../../config/gamesConfig');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -43,7 +43,7 @@ module.exports = {
 
 				const embed = new EmbedBuilder()
 					.setColor('#6BCB77')
-					.setTitle(`${game?.emoji || '🎮'} ${game?.name || post.game}`)
+					.setTitle(`${getGameEmoji(post.game)} ${game?.name || post.game}`)
 					.addFields(
 						{ name: 'Game Type', value: post.gameType || 'Any', inline: true },
 						{ name: 'Players Needed', value: `${post.playerCountNeeded}`, inline: true },

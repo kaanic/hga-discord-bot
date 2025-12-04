@@ -7,6 +7,19 @@ const ECONOMY = {
 	DAILY_AMOUNT: 100,
 };
 
+const GAME_EMOJIS = {
+	overwatch: '1446267439091548331',
+	valorant: '1446265332384792647',
+	cs2: '1445849781242036254',
+	leagueoflegends: '1446265331554320385',
+	minecraft: '1446265770807132375',
+	fortnite: '1446265328375042109',
+	apex: '1446265326772949137',
+	dota2: '1446265325065736353',
+	phasmophobia: '1446265320732885132',
+};
+
 module.exports = {
 	ECONOMY,
+	GAME_EMOJIS,
 };

@@ -1,11 +1,11 @@
 // game config for LFG system
 // includes the available games, their gametypes and group capacity
 
-// TODO: add custom emojis for each game
+const { GAME_EMOJIS } = require('../globals');
 
 const gamesConfig = {
 	overwatch: {
-		name: 'Overwatch',
+		name: 'Overwatch 2',
 		emoji: '🎮',
 		gameTypes: [
 			'Quick Play',
@@ -64,7 +64,7 @@ const gamesConfig = {
 		name: 'Minecraft',
 		emoji: '⛏️',
 		gameTypes: [],
-		maxPlayers: 10,
+		maxPlayers: 32,
 		minPlayers: 1,
 	},
 
@@ -134,10 +134,26 @@ function validatePlayerCount(gameKey, playerCount) {
 	return (playerCount >= game.minPlayers) && (playerCount <= game.maxPlayers);
 }
 
+// getting formatted emoji string for a game
+function getGameEmoji(gameKey) {
+	const game = getGame(gameKey);
+	const gameKeyLower = gameKey.toLowerCase();
+	const emojiId = GAME_EMOJIS[gameKeyLower];
+
+	if (!emojiId) {
+		return game?.emoji || '🎮';
+	}
+
+	// returning formatted emoji mention: <:name:id>
+	const emojiName = game.name.toLowerCase().replace(/\s+/g, '');
+	return `<:${emojiName}:${emojiId}>`;
+}
+
 module.exports = {
     gamesConfig,
     getGame,
 	getAllGames,
 	validateGameAndType,
 	validatePlayerCount,
+	getGameEmoji,
 };
