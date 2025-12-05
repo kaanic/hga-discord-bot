@@ -56,6 +56,23 @@ function getActiveLFGPosts(guildId) {
     }
 }
 
+// getting all LFG posts (active and expired)
+// required for purge
+function getAllGuildLFGPosts(guildId) {
+    try {
+        const stmt = db.prepare(`
+            SELECT * FROM lfg_posts
+            WHERE guildId = ?
+            ORDER BY createdAt DESC;
+        `);
+
+        return stmt.all(guildId);
+    } catch (error) {
+        console.error('Error getting all guild LFG posts:', error);
+        return [];
+    }
+}
+
 // getting an user's LFG posts
 function getUserLFGPosts(guildId, userId) {
     try {
@@ -131,4 +148,5 @@ module.exports = {
     deleteLFGPost,
     cleanupExpiredLFGPosts,
     updatePostMessageId,
+    getAllGuildLFGPosts,
 };
