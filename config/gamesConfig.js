@@ -101,6 +101,19 @@ const gamesConfig = {
 	},
 };
 
+// mapping of game keys to their custom emoji names in Discord
+const EMOJI_NAMES = {
+	overwatch: 'overwatch2',
+	valorant: 'valorant',
+	cs2: 'cs2',
+	leagueoflegends: 'leagueoflegends',
+	minecraft: 'minecraft',
+	fortnite: 'fortnite',
+	apex: 'apexlegends',
+	dota2: 'dota2',
+	phasmophobia: 'phasmophobia',
+};
+
 // -- helper functions ---
 
 // getting a game by the key
@@ -144,8 +157,12 @@ function getGameEmoji(gameKey) {
 		return game?.emoji || '🎮';
 	}
 
-	// returning formatted emoji mention: <:name:id>
-	const emojiName = game.name.toLowerCase().replace(/\s+/g, '');
+	// using the emoji name mapping to get the correct name
+	const emojiName = EMOJI_NAMES[gameKeyLower];
+	if (!emojiName) {
+		return game?.emoji || '🎮';
+	}
+
 	return `<:${emojiName}:${emojiId}>`;
 }
 
