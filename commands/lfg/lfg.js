@@ -229,11 +229,14 @@ async function handleCreate(interaction) {
         // creating embed message
         const embed = new EmbedBuilder()
             .setColor('#6BCB77')
-            .setTitle(`${getGameEmoji(game)} ${gameConfig.name}`)
+            .setTitle(`${interaction.user.username} is looking for players!`)
             .addFields(
+                // row #1 - 3 columns
+                { name: 'Game', value: `${getGameEmoji(game)} ${gameConfig.name}`, inline: true },
                 { name: 'Game Type', value: gameType || 'Any', inline: true },
-                { name: 'Players Needed', value: `${playerCount}`, inline: true },
-                { name: 'Posted By', value: `<@${userId}>`, inline: true },
+                { name: 'Party Size', value: `${playerCount}`, inline: true },
+
+                // row #2 - 3 columns
                 { name: 'Voice Channel', value: `${voiceChannel.toString()}`, inline: true },
                 { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`, inline: true },
                 { name: 'Post ID', value: `\`${post.id}\``, inline: true },
